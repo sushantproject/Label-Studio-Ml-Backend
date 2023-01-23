@@ -1,13 +1,55 @@
 ## Overview 
 This is the Label Studio ML Backend for Image classification with the possibility of transfer learning. 
 
+
+
+
+## How to initialize ml backend
+
+1. Override predict method of `LabelStudioMLBase` class.
+Here is code script of my case:
+```python
+from label_studio_ml.model import LabelStudioMLBase
+class ImageClassifierAPI(LabelStudioMLBase):
+
+    def __init__(self, **kwargs):
+        super(ImageClassifierAPI, self).__init__(**kwargs)
+        self.from_name, self.to_name, self.value, self.classes = get_single_tag_keys(
+            self.parsed_label_config, 'Choices', 'Image')
+        self.model = model_fn(model_dir, device)
+
+    def predict(self, tasks, **kwargs):
+        image_urls = [task['data'][self.value] for task in tasks]
+        predictions = []
+        for image_url in image_urls:
+            image = get_transformed_image(image_url)
+            score, predicted_label = inference(image, self.model)
+            # prediction result for the single task
+            result = [{
+                'from_name': self.from_name,
+                'to_name': self.to_name,
+                'type': 'choices',
+                'value': {'choices': [predicted_label]}
+            }]
+
+            # expand predictions with their scores for all tasks
+            predictions.append({'result': result, 'score': float(score)})
+
+        return predictions
+
+```
+
+2. Initialize backend by: `label-studio-ml init my-ml-backend --script Label-Studio-Ml-Backend/ml_backend.py --force`
+3. Start ml backend by:: `label-studio-ml start my-ml-backend/`
+
+**Refernce: https://www.youtube.com/watch?v=43Ph805ukEc&t=991s**
+
 ## Quickstart
 
 Build and start Machine Learning backend on `http://localhost:9090`
 
 ```bash
 docker-compose up
-```
 
 Check if it works:
 

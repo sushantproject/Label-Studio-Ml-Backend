@@ -1,15 +1,14 @@
-import io
-import logging
-import numpy as np
+
 import torch
-import torchvision
 import torchvision.transforms as T
 import torch.nn.functional as F
 
 from PIL import Image
-import json
 import os
-from utils import extract_model, download_file_from_s3, extract_archive
+import boto3
+
+import tarfile
+from urllib.parse import urlparse
 
 from label_studio_ml.model import LabelStudioMLBase
 from label_studio_ml.utils import get_single_tag_keys, get_choice, is_skipped, get_local_path
@@ -19,8 +18,8 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 MODEL_S3_URI = "s3://sagemaker-project-p-sqr54jwsvwmr/pipelines-y15izn1hued7-TrainIntelClassifier-0i7SGpoIvV/output/model.tar.gz"
 
 transform = T.Compose([T.Resize((224, 224)),
-                                    T.ToTensor(),
-                                    T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+                       T.ToTensor(),
+                       T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
 
 idx_to_class = {
     0: 'buildings', 1: 'forest', 2: 'glacier', 3: 'mountain', 4: 'sea', 5: 'street'
@@ -29,8 +28,33 @@ idx_to_class = {
 # LOAD MODEL
 model_dir = os.path.dirname(__file__)
 
+
+def get_model_bucket_key(model_s3_uri):
+    o = urlparse(model_s3_uri)
+    bucket = o.netloc
+    key = o.path
+    return bucket, key
+
+
+def extract_model(model_s3_uri, extract_folder):
+    s3 = boto3.client('s3')
+    try:
+        filename = '/tmp/model.tar.gz'
+        bucket, key = get_model_bucket_key(model_s3_uri)
+        print("Bucket: {}, Key: {}".format(bucket, key))
+        s3.download_file(bucket, key[1:], filename)
+
+        tar = tarfile.open(filename)
+        tar.extractall(extract_folder)
+        print("All files in the directory after extracting:: {} ".format(os.listdir(extract_folder)))
+        tar.close()
+    except Exception as e:
+        raise e
+
+
 # download model file from S3 into /tmp folder
 extract_model(MODEL_S3_URI, model_dir)
+
 
 def model_fn(model_dir, device):
     model = torch.jit.load(f"{model_dir}/model.scripted.pt")
@@ -38,8 +62,6 @@ def model_fn(model_dir, device):
     model.to(device).eval()
 
     return model
-
-
 
 
 def inference(model_input, model):
@@ -93,4 +115,5 @@ class ImageClassifierAPI(LabelStudioMLBase):
             # expand predictions with their scores for all tasks
             predictions.append({'result': result, 'score': float(score)})
 
+        print("Predictions: {}".format(predictions))
         return predictions
