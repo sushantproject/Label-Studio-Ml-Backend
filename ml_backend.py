@@ -101,7 +101,7 @@ class ImageClassifierAPI(LabelStudioMLBase):
     def predict(self, tasks, **kwargs):
         image_urls = [task['data'][self.value] for task in tasks]
         predictions = []
-        for image_url in image_urls:
+        for i, image_url in enumerate(image_urls):
             image = get_transformed_image(image_url)
             score, predicted_label = inference(image, self.model)
             # prediction result for the single task
@@ -114,6 +114,6 @@ class ImageClassifierAPI(LabelStudioMLBase):
 
             # expand predictions with their scores for all tasks
             predictions.append({'result': result, 'score': float(score)})
-
+            print("::Pred: {}: > {}".format(i, result))
         print("Predictions: {}".format(predictions))
         return predictions
