@@ -6,6 +6,10 @@ This is the Label Studio ML Backend for Image classification with the possibilit
 
 ## How to initialize ml backend
 
+At first start the label studio docker as:
+`docker run -it -p 8080:8080 -v $(pwd)/mydata:/label-studio/data heartexlabs/label-studio:latest`
+Then follow steps as:
+
 1. Override predict method of `LabelStudioMLBase` class.
 Here is code script of my case:
 ```python
